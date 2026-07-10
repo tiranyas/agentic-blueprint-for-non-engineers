@@ -1,0 +1,3 @@
+id,claim,source_url,label,corruption_type,notes
+1,"[טענה נכונה מריצה אמיתית]","[URL]","valid","","20 נכונות בערך"
+2,"[טענה שקולקלה בכוונה: מספר שונה / שם הוחלף / לינק לא קשור / כיוון הפוך]","[URL]","corrupted","number_changed","10 מקולקלות בערך · ה-Verifier לא יודע מי מי"
