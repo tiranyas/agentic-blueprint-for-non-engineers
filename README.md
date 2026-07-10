@@ -1,199 +1,201 @@
-# Agentic Process Blueprint
+# Agentic Blueprint for Non-Engineers
 
-**פריימוורק לבניית תהליכי אוטומציה עם סוכני AI · לאנשים שהם לא בהכרח מתכנתים.**
+**A framework for building AI-agent automations you can actually trust · for people who are not necessarily programmers.**
 
-הבעיה: קל לבנות סוכן שנותן פלט יפה. קשה לדעת אם הפלט נכון. הפריימוורק הזה בונה את הבדיקה לתוך הארכיטקטורה, מהיום הראשון · כך שתדע תוך ריצה אחת אם התהליך שבנית באמת עובד, לפני שהלקוח מגלה הזיה בעצמו.
+עברית: [README.he.md](README.he.md)
 
-**לא מתכנת? זה בשבילך.** בכל מקום שכתוב "בקוד" · אתה לא כותב אותו. אתה מגדיר מה לבדוק, ומבקש מכלי ה-AI שלך (Claude וכדומה) לכתוב ולהריץ את הסקריפט. התפקיד שלך הוא ההחלטות, לא ההקלדה.
+The problem: it's easy to build an agent that produces beautiful output. It's hard to know whether that output is true. This framework builds the checking into the architecture from day one · so you know within one run whether the process you built actually works, before a client discovers a hallucination for you.
 
-נולד מפרויקטים אמיתיים של חקר מתחרים ותהליכי איסוף-וניתוח. גנרי בכוונה: מתאים לחקר מתחרים, מחקר שוק, ניטור, דוחות תקופתיים, וכל תהליך של איסוף → ניתוח → פלט.
+**Not a programmer? This is for you.** Wherever this document says "in code", you don't write that code. You define what to check, and ask your AI tool (Claude or similar) to write and run the script. Your job is the decisions, not the typing.
 
-> v0.2 · עודכן יולי 2026. English version: planned.
+Born from real projects (competitor research, collect-and-analyze pipelines). Deliberately generic: fits competitor research, market research, monitoring, recurring reports, CV screening · any collect → analyze → output process.
+
+> v0.2 · July 2026. Templates are currently in Hebrew · English templates planned.
 
 ---
 
-## מתי להשתמש
+## When to use this
 
-כשהמשימה חוזרת, כוללת איסוף / עיבוד / החלטה, ואפשר לפרק אותה לתפקידים.
-משימה חד פעמית פשוטה לא צריכה תהליך · היא צריכה פרומפט.
+When the task repeats, involves collecting / processing / deciding, and can be split into roles.
+A simple one-off task doesn't need a process · it needs a prompt.
 
-## העיקרון המרכזי
+## The core principle
 
-**איכות היא חלק מהארכיטקטורה, לא תוספת בסוף.** ולצידו הכלל שמפעיל את הכל:
+**Quality is part of the architecture, not an afterthought.** And the rule that drives everything:
 
-> **מנגנון בלי מדידה זו אמונה. מנגנון עם מדידה זו הנדסה.**
+> **A mechanism without measurement is faith. A mechanism with measurement is engineering.**
 
-כל גייט עונה על ארבע שאלות: מה · איך · איך יודעים שזה עובד · מתי לוותר.
+Every gate in this document answers four questions: what · how · how you know it works · when to skip it.
 
-שבעה גייטים, בחלוקה פנימית:
-- **ליבת איכות (3):** Verifier, Learning, Eval · המנגנונים שתופסים ומתקנים טעויות.
-- **תשתית תומכת (4):** Provenance, Determinism, HITL, Context hygiene · התנאים שבזכותם הליבה עובדת.
+Seven gates, in two groups:
+- **Quality core (3):** Verifier, Learning, Eval · the mechanisms that catch and fix mistakes.
+- **Supporting infrastructure (4):** Provenance, Determinism, HITL, Context hygiene · the conditions that let the core work.
 
-## שתי רמות · לפי סיכון
+## Two levels · by risk, not "always"
 
-הגייטים הם ברירת מחדל עם החרגה מודעת. גייט שלא רלוונטי · מסמנים במפורש למה, לא מדלגים בשקט.
+Gates are a default with conscious exceptions, not dogma. Skipping a gate · state why explicitly, never skip silently.
 
-| רמה | מתי | מה חובה |
+| Level | When | Required |
 |---|---|---|
-| **Full** | כסף, מוניטין, בלתי הפיך, מגיע ללקוח | כל 7 הגייטים + חוסן תפעולי מלא |
-| **Light** | פנימי, הפיך, סיכון נמוך | Provenance + spot-check ידני + תקרת עלות |
+| **Full** | Money, reputation, irreversible, client-facing | All 7 gates + full operational resilience |
+| **Light** | Internal, reversible, low risk | Provenance + manual spot-check + cost cap |
 
-## אנטומיה סטנדרטית
+## Standard anatomy
 
 ```
 Context/Input → Collect → Analyze → Verify → Output
                                        ↑        ↑
-                                  HITL על סיכון  Eval (מדידה רוחבית)
+                              HITL at risk points  Eval (cross-cutting measurement)
 
-Output ─(lessons)→ Context של הריצה הבאה
+Output ─(lessons)→ Context of the next run
 ```
 
-Verify עוצר טענות לפני הפלט. HITL (Human-in-the-loop · אישור אדם) נכנס בנקודות סיכון. Learning היא לולאה **בין ריצות**. Eval נמדד רוחבית על כל התהליך.
+Verify stops claims before output. HITL (Human-in-the-loop · a human approves at risk points) enters at risk points. Learning is a loop **between runs**. Eval measures the whole process.
 
 ---
 
-## 7 הגייטים
+## The 7 gates
 
-### 1 · Provenance / Citations (תשתית)
-**מה:** כל עובדה עם לינק מקור. עובדה בלי מקור לא נכנסת לפלט.
-**איך:** שדה מקור חובה בכל רשומה (URL + תאריך שליפה).
-**חשוב לדייק:** לינק מצמצם הזיה, לא מבטל אותה. מודלים ממציאים לינקים ומצמידים מקורות אמיתיים לטענות שהם לא תומכים בהן. לכן ה-Verifier בודק שהמקור באמת תומך בטענה.
-**איך יודעים שעובד:** אפס רשומות בלי שדה מקור (בדיקת קוד).
-**מתי לוותר:** פייפליין יצירתי טהור בלי טענות עובדתיות.
+### 1 · Provenance / Citations (infrastructure)
+**What:** every fact carries a source link. A fact without a source doesn't enter the output.
+**How:** a mandatory source field on every record (URL + retrieval date).
+**Be precise:** a link reduces hallucination, it doesn't eliminate it. Models invent links and attach real sources to claims they don't support. That's why the Verifier checks that the source actually supports the claim.
+**How you know it works:** zero records without a source field (code check).
+**When to skip:** purely creative pipelines with no factual claims.
 
-### 2 · Verifier (ליבה)
-**מה:** סוכן שתפקידו להפריך, לא לאשר. בודק את הטענות שהכי יקר לטעות בהן מול המקור עצמו.
-**איך:** מודל שונה מהמודל שיצר · מקטין קורלציית שגיאות, לא מבטל אותה (גם מודלים שונים חולקים דאטת אימון). לכן מה שאפשר בקוד · בקוד: מספר, תאריך, ציטוט = בדיקת מחרוזת במקור, ובדיקת קוד עדיפה תמיד על שיפוט LLM.
-**איך יודעים שעובד:** ה-Verifier עצמו LLM ולכן נמדד · סט זרוע (ראה Eval לעומק). שני מספרים: false-approve (אישר טענה מקולקלת · מסוכן) ו-false-reject (פסל טענה נכונה · שקט). מתעדים גם מה נפסל.
-**מתי לוותר:** Light + פלט שאדם עובר עליו שורה שורה.
+### 2 · Verifier (core)
+**What:** an agent whose job is to refute, not approve. It checks the claims that are most expensive to get wrong, against the source itself.
+**How:** a different model than the one that generated · this reduces error correlation, it doesn't eliminate it (different models share training data). So whatever can be checked in code · check in code: numbers, dates, quotes = string match against the source. A code check always beats LLM judgment.
+**How you know it works:** the Verifier is itself an LLM, so it gets measured · with a seeded set (see Eval in depth). Two numbers: false-approve (approved a corrupted claim · the dangerous failure) and false-reject (rejected a true claim · the silent failure). Log what was rejected, not only what passed.
+**When to skip:** Light + output a human reviews line by line anyway.
 
-### 3 · Learning loop (ליבה)
-**מה:** קובץ `lessons.md` שכל סוכן קורא בתחילת ריצה. טעות שהוצפה הופכת לכלל.
-**איך:** כל lesson עם מקור ותאריך. **שער כניסה:** lesson חדש נכנס לתוקף רק באישור אדם · כלל שגוי מתפשט לכל הסוכנים ונהיה קבוע.
-**בלי לזהם קונטקסט** (המתיחות מול גייט 7): מחברת שרק גדלה מציפה את הסוכן ופוגעת בביצועים (context rot · מוסבר בגייט 7). לכן מחזור חיים:
-- **מיון לפי תפקיד:** כל lesson מתויג לסוכן, וכל סוכן קורא רק את שלו.
-- **תקרה קשיחה:** 10-15 כללים פעילים לסוכן. רוצה להוסיף מעבר · קודם מוציאים אחד.
-- **קידום ופרישה:** lesson יציב נכנס להגדרת הסוכן ויוצא מהמחברת; lesson שלא משפר eval נמחק. המחברת היא תחנת מעבר, לא ארכיון.
-**איך יודעים שעובד:** כלל שלא משפר את ציון ה-eval יוצא, והמחברת לא חוצה את התקרה.
-**מתי לוותר:** אף פעם · זה הזול מכולם.
+### 3 · Learning loop (core)
+**What:** a `lessons.md` file every agent reads at the start of a run. A caught mistake becomes a rule.
+**How:** every lesson has an origin (which run, date). **Entry gate:** a new lesson takes effect only after human approval · a wrong rule spreads to all agents and becomes permanent.
+**Without polluting context** (the tension with gate 7): a notebook that only grows drowns the agent and degrades performance (context rot · see gate 7). So lessons have a lifecycle:
+- **Scoped by role:** each lesson is tagged to an agent, and each agent reads only its own.
+- **Hard cap:** 10-15 active rules per agent. Want to add beyond that · retire one first.
+- **Promote and retire:** a stable lesson moves into the agent's definition and leaves the notebook; a lesson that doesn't improve the eval score gets deleted. The notebook is a transit station, not an archive.
+**How you know it works:** rules that don't improve the eval score get removed, and the notebook stays under its cap.
+**When to skip:** never · it's the cheapest gate of all.
 
-### 4 · Eval (ליבה)
-**מה:** מדידה שרצה על כל שינוי ועונה במספר: התהליך עובד או לא.
-**איך:** ראה "Eval לעומק" למטה.
-**איך יודעים שעובד:** pass rate שנרשם בהיסטוריה על כל גרסה.
-**מתי לוותר:** Light עם בדיקה ידנית. אבל גם אז: 5 דוגמאות קבועות עדיפות על כלום.
+### 4 · Eval (core)
+**What:** a measurement that runs on every change and answers with a number: the process works or it doesn't.
+**How:** see "Eval in depth" below.
+**How you know it works:** a pass rate recorded in history for every version.
+**When to skip:** Light with manual checking. Even then: 5 fixed examples beat nothing.
 
-### 5 · Determinism where possible (תשתית)
-**מה:** השוואות וחישובים בקוד, לא בזיכרון של LLM. מקור אמת אחד (קובץ / Sheet / DB).
-**איך:** דיפים, סכומים, מיזוגים · בקוד. ה-LLM מנתח, הקוד סופר.
-**איך יודעים שעובד:** אותו קלט פעמיים = אותו פלט בשכבות הדטרמיניסטיות.
-**מתי לוותר:** אין.
+### 5 · Determinism where possible (infrastructure)
+**What:** comparisons and calculations in code, not in an LLM's memory. One source of truth (file / Sheet / DB).
+**How:** diffs, sums, merges · in code. The LLM analyzes, the code counts.
+**How you know it works:** same input twice = same output in the deterministic layers.
+**When to skip:** never.
 
-### 6 · HITL על סיכון (תשתית)
-**מה:** HITL (Human-in-the-loop · אישור אדם בנקודת סיכון). הסוכן מציע, האדם מאשר את מה שיקר או בלתי הפיך. Proposals, not decisions.
-**איך:** קובץ review עם צ'קבוקסים לפני כל פעולה בלתי הפיכה.
-**איך יודעים שעובד:** אפס פעולות בלתי הפיכות בלי חתימה.
-**מתי לוותר:** פעולות הפיכות וזולות בלבד.
+### 6 · HITL at risk points (infrastructure)
+**What:** HITL (Human-in-the-loop). The agent proposes, the human approves anything expensive or irreversible. Proposals, not decisions.
+**How:** a review file with checkboxes before any irreversible action.
+**How you know it works:** zero irreversible actions without a sign-off.
+**When to skip:** reversible, cheap actions only.
 
-### 7 · Context hygiene (תשתית)
-**מה:** שני כשלים שונים:
-- **Context rot** · ביצועי המודל יורדים ככל שהקונטקסט גדל ומתרעש. פתרון: קונטקסט מפוצל לפי תפקיד, גיזום קבוע.
-- **Staleness** · דאטה ישן שמוצג כעדכני. פתרון: סריקה חיה בכל ריצה, כל חומר מתוארך.
-**איך יודעים שעובד:** כל סוכן טוען רק את מה שברשימה שלו; אין קובץ בלי תאריך.
-**מתי לוותר:** אין.
-
----
-
-## חוסן תפעולי · הציר השני
-
-איכות בלי חוסן = תהליך שנותן תשובות נכונות עד שהוא נשבר בשקט. ב-Full כל אלה חובה:
-
-- **כשל, retry ואיסוף חלקי.** גייט שלמות איסוף: הסוכן מצהיר כמה פריטים ציפה מול כמה קיבל, ומסמן `הצליח / חלקי / נכשל`. ריצה חלקית לא ממשיכה בשקט. איסוף חלקי אחד מרעיל את כל המנתחים למטה, וה-Verifier מאשר טענות שנשענות על חוסר.
-- **יומן ריצה.** לכל סוכן: קלט, מקורות, פלט, עלות, זמן, סטטוס. בלעדיו אי אפשר לאבחן פלט שגוי, וה-learning loop חסום.
-- **סודות ו-PII.** מפתחות בקובץ נפרד, לעולם לא בפרומפט ולא בלוג. רשימת שדות שאסור לשלוח ל-LLM או שממסכים.
-- **תקרת עלות כ-circuit breaker (מפסק פחת).** תקרה קשה בזמן ריצה (טוקנים / קריאות / זמן) + עצירה והתראה. לולאה תקועה נעצרת לבד.
-- **Rate limits.** קצב קריאות מוגדר מראש (pacing) לכל מקור, זיהוי rate-limit כמצב מפורש (לא "אפס תוצאות"), המתנה וניסיון חוזר (backoff) במקום כשל שקט.
-- **גרסאות פרומפטים.** כל שינוי פרומפט = גרסה, וכל ריצת eval נרשמת מולה. שינוי פרומפט לא מאומץ בלי eval.
+### 7 · Context hygiene (infrastructure)
+**What:** two distinct failures:
+- **Context rot** · model performance degrades as context grows and gets noisy. Fix: context split by role (scoped), regular pruning.
+- **Staleness** · old data presented as current. Fix: live scan every run, every document dated.
+**How you know it works:** each agent loads only what's on its list; no file without a date.
+**When to skip:** never.
 
 ---
 
-## Eval לעומק · הפרק שהופך תקווה לידיעה
+## Operational resilience · the second axis
 
-Eval זה unit tests למערכת לא-דטרמיניסטית: קלט קבוע, פלט צפוי, השוואה אוטומטית, רץ על כל שינוי.
+Quality without resilience = a process that gives correct answers until it breaks silently. At Full level, all of these are mandatory:
 
-### עץ החלטה לפי סוג פלט
-
-- **פלט סגור** (חילוץ: מחיר, שם, תאריך, סיווג) → **golden set**: 10-20 דוגמאות קלט→פלט נכון ידוע. השוואה בקוד.
-- **פלט פתוח** (סיכום, ניתוח, תוכן) → אין תשובה נכונה אחת, בודקים **תכונות**:
-  - בקוד: יש מקור לכל טענה? כל השדות מולאו? אורך סביר?
-  - LLM-as-judge עם rubric (מחוון · רשימת שאלות סגורה): שאלות כן/לא ("הסיכום סותר את המקור?"), לא "ציון 1-10". מודל שופט שונה מהיוצר.
-- **ה-Verifier עצמו** → **סט זרוע** (seeded set):
-  1. קח ~20 טענות אמיתיות שידוע שהן נכונות.
-  2. קלקל ~10 בכוונה: שנה מספר, החלף שם, הצמד לינק לא קשור, הפוך כיוון.
-  3. הרץ את ה-Verifier על כולן בלי להגיד מי מי.
-  4. מדוד false-approve ו-false-reject.
-
-### כלל ההכרעה · מתי שינוי מאומץ
-
-שני שערים, שניהם חייבים לעבור:
-1. **false-approve = 0** על הסט הזרוע · אישור טענה מקולקלת הוא הכשל היקר, ולכן שער קשיח.
-2. **אין רגרסיה:** הציון לא יורד מול הגרסה הקודמת ב-history. ירד · השינוי לא מאומץ, נקודה.
-
-### הסט הקבוע · נכס שמצטבר
-
-- חי בקבצים מגורסים לצד התהליך (`eval/golden-set.csv`, `eval/seeded-set.csv` · "הסט הזרוע").
-- **Append-only:** דוגמאות לא נמחקות ולא "מתוקנות" כדי שהציון יעלה. טעות מפרודקשן → מצטרפת לסט. הסט נהיה קשה יותר עם הזמן, בדיוק כמו שצריך.
-- **היסטוריה** (`eval/history.md`): תאריך, גרסת פרומפט, pass rate, false-approve, false-reject.
-- **טריגר:** כל שינוי פרומפט / מודל / lesson → מריצים לפני אימוץ.
+- **Failure, retry, and partial collection.** A collection-completeness gate: the agent declares how many items it expected vs. received, and marks the run `success / partial / failed`. A partial run never continues silently. One partial collection poisons every analyzer downstream, and the Verifier ends up approving claims built on gaps.
+- **Run log.** Per agent: input, sources, output, cost, time, status. Without it you can't diagnose a bad output, and the learning loop is blocked.
+- **Secrets and PII.** API keys in a separate file, never in a prompt or a log. A list of fields that must never reach the LLM, or get masked first.
+- **Cost cap as a circuit breaker.** A hard runtime cap (tokens / calls / time) + stop and alert. A stuck loop stops itself.
+- **Rate limits.** Predefined pacing per source, rate-limit responses recognized as an explicit state (not "zero results"), backoff instead of silent failure.
+- **Prompt versioning.** Every prompt change = a version, and every eval run is recorded against it. A prompt change is never adopted without an eval run.
 
 ---
 
-## עיצוב הסוכנים
+## Eval in depth · the chapter that turns hope into knowledge
 
-- **תפקיד יחיד לכל סוכן.** אם צריך "ו" כדי לתאר אותו · אלה שני סוכנים.
-- **Collect once, analyze many.** שכבת איסוף אחת + גייט שלמות. לא לגרד את אותו מקור פעמיים.
-- **Scoped context.** כל סוכן טוען רק את מה שהוא צריך.
-- **Model routing (ניתוב מודלים).** המודל הזול שעושה את העבודה; המודל היקר רק להיגיון קשה. תקרת סוכנים ותקציב מראש.
-- **סוכן חדש רק על יכולת חדשה, לא על שם חדש.**
+Eval is unit tests for a non-deterministic system: fixed input, expected output, automatic comparison, runs on every change.
 
-## אנטי־דפוסים
+### Decision tree by output type
 
-- סוכן שעושה הכל · לפצל.
-- "הסוכן יזכור מה השתנה" · לא, דיף בקוד.
-- פלט בלי מקורות · אסור.
-- לינק = אמת · לא, המקור צריך לתמוך בטענה.
-- Verifier שאף אחד לא מודד · אורקל באמונה.
-- lesson שנכנס בלי אישור · שגיאה שהופכת לחוק.
-- לבנות בלי eval · אתה מקווה, לא יודע.
-- לתקן את הסט כדי שהציון יעלה · הסט append-only.
-- איסוף חלקי שממשיך בשקט · מרעיל את השרשרת.
-- לצבור קונטקסט בלי גיזום · context rot.
-- להריץ את המודל היקר על כל תת־משימה · בזבוז.
+- **Closed output** (extraction: price, name, date, classification) → **golden set**: 10-20 input→known-correct-output examples. Compared in code.
+- **Open output** (summary, analysis, content) → no single correct answer, so check **properties**:
+  - In code: does every claim have a source? All fields filled? Reasonable length?
+  - LLM-as-judge with a rubric (a closed list of yes/no questions: "does the summary contradict the source?"), not "score 1-10". A judge model different from the generator.
+- **The Verifier itself** → a **seeded set** (the key trick):
+  1. Take ~20 real claims known to be true.
+  2. Deliberately corrupt ~10: change a number, swap a name, attach an unrelated link, flip a direction.
+  3. Run the Verifier on all of them without telling it which is which.
+  4. Measure false-approve and false-reject.
 
-## דוגמה מקצה לקצה · חקר מתחרים
+### The decision rule · when a change is adopted
 
-| גייט | יישום בפועל | קובץ/כלי |
+Two gates, both must pass:
+1. **false-approve = 0** on the seeded set · approving a corrupted claim is the expensive failure, so this gate is hard.
+2. **No regression:** the score doesn't drop vs. the previous version in history. Dropped · not adopted, period.
+
+### The fixed set · an asset that compounds
+
+- Lives in versioned files next to the process (`eval/golden-set.csv`, `eval/seeded-set.csv`).
+- **Append-only:** examples are never deleted or "fixed" to make the score go up. A production mistake → joins the set. The set gets harder over time, exactly as it should.
+- **History** (`eval/history.md`): date, prompt version, pass rate, false-approve, false-reject, decision.
+- **Trigger:** every prompt / model / lesson change → run before adopting.
+
+---
+
+## Agent design
+
+- **One role per agent.** If you need an "and" to describe it · that's two agents.
+- **Collect once, analyze many.** One shared collection layer + completeness gate. Never scrape the same source twice.
+- **Scoped context.** Each agent loads only what it needs.
+- **Model routing.** The cheapest model that does the job; the expensive model only for hard reasoning. Agent cap and budget set upfront.
+- **A new agent only for a new capability, not a new name.**
+
+## Anti-patterns
+
+- One agent that does everything · split it.
+- "The agent will remember what changed" · no, diff in code.
+- Output without sources · forbidden.
+- Link = truth · no, the source must support the claim.
+- A Verifier nobody measures · an oracle taken on faith.
+- A lesson that enters without approval · a mistake that becomes law.
+- Building without eval · you're hoping, not knowing.
+- Fixing the set to raise the score · the set is append-only.
+- Partial collection that continues silently · poisons the chain.
+- Accumulating context without pruning · context rot.
+- Running the expensive model on every subtask · waste.
+
+## End-to-end example · competitor research
+
+| Gate | Implementation | File/tool |
 |---|---|---|
-| מקור אמת | טבלת מתחרים אחת | competitors.csv |
-| Collect | סוכן איסוף אחד: אתרים, מחירים, חדשות | collector + run log |
-| שלמות | "ציפיתי ל-12 מתחרים, קיבלתי 12" | סטטוס בריצה |
-| Analyze | מנתח לכל פלט (דוח, טבלה) | analyzer per output |
-| Provenance | כל טענה עם URL + תאריך שליפה | שדה חובה |
-| Verifier | מודל שונה בודק טענות מפתח; מחירים = בדיקת מחרוזת בקוד | verifier agent |
-| Eval | golden set: 15 שאלות; סט זרוע: 10 טענות מקולקלות | eval/*.csv + history.md |
-| HITL | דירוג ופרסום · רק באישור | review.md |
-| Learning | "אתר X חוסם scraping · השתמש ב-API" | lessons.md |
-| עלות | תקרה לריצה + model routing | config |
+| Source of truth | One competitor table | competitors.csv |
+| Collect | One collection agent: sites, prices, news | collector + run log |
+| Completeness | "Expected 12 competitors, got 12" | run status |
+| Analyze | One analyzer per output (report, table) | analyzer per output |
+| Provenance | Every claim with URL + retrieval date | mandatory field |
+| Verifier | Different model checks key claims; prices = string check in code | verifier agent |
+| Eval | Golden set: 15 known Q&A; seeded set: 10 corrupted claims | eval/*.csv + history.md |
+| HITL | Threat ranking and publishing · approval only | review.md |
+| Learning | "Site X blocks scraping · use the API" | lessons.md |
+| Cost | Per-run cap + model routing | config |
 
-## איך מתחילים
+## Getting started
 
-0. **בחר איפה זה רץ.** הכלי שאתה כבר עובד איתו: Claude (Projects / Code), n8n, Make, או כל כלי סוכנים אחר. הגייטים לא תלויים בכלי · הם מבנה, לא טכנולוגיה. לא בטוח? Claude + תיקיית קבצים זו התחלה מצוינת.
-1. העתק את `templates/` לפרויקט שלך.
-2. מלא את `templates/checklist.md` · זה הטופס, לא קריאה. תוך כדי מילוי, בקש מכלי ה-AI לבנות את הסוכנים לפי התפקידים שהגדרת (אוסף, מנתח, verifier).
-3. בנה golden set קטן (אפילו 5 דוגמאות שאתה יודע את התשובה שלהן) וריצת פיילוט מולו.
-4. מהטענות האמיתיות של הריצה שעברה · בנה את הסט הזרוע ל-Verifier (הפיילוט קודם, הסט אחריו).
-5. משם: כל שינוי → eval → כלל ההכרעה → history.
+0. **Pick where it runs.** The tool you already use: Claude (Projects / Code), n8n, Make, or any agent tool. The gates don't depend on the tool · they're structure, not technology. Unsure? Claude + a folder of files is a great start.
+1. Copy `templates/` into your project.
+2. Fill in `templates/checklist.md` · it's a form, not reading material. As you fill it, ask your AI tool to build the agents per the roles you defined (collector, analyzer, verifier).
+3. Build a small golden set (even 5 examples you know the answers to) and run a pilot against it.
+4. From the real claims of the passing run · build the seeded set for the Verifier (pilot first, seeded set after).
+5. From there: every change → eval → decision rule → history.
 
-## רישיון
+## License
 
-MIT. קחו, השתמשו, שפרו. PRs welcome.
+MIT. Take it, use it, improve it. PRs welcome.
