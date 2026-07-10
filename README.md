@@ -187,6 +187,20 @@ Two gates, both must pass:
 | Learning | "Site X blocks scraping · use the API" | lessons.md |
 | Cost | Per-run cap + model routing | config |
 
+## Install as a Claude skill (recommended)
+
+The repo ships with a ready-made skill, so Claude applies this methodology automatically whenever you ask to build an agent automation · no need to remember it exists:
+
+```
+git clone https://github.com/tiranyas/agentic-blueprint-for-non-engineers
+# Windows
+xcopy /E /I agentic-blueprint-for-non-engineers\skill %USERPROFILE%\.claude\skills\agentic-blueprint
+# macOS / Linux
+cp -r agentic-blueprint-for-non-engineers/skill ~/.claude/skills/agentic-blueprint
+```
+
+From then on, saying "let's build an automation" in Claude Code triggers the blueprint: checklist first, agent roster with cost ceiling for approval, gates wired, eval before trust.
+
 ## Getting started
 
 0. **Pick where it runs.** The tool you already use: Claude (Projects / Code), n8n, Make, or any agent tool. The gates don't depend on the tool · they're structure, not technology. Unsure? Claude + a folder of files is a great start.

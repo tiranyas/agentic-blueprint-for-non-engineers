@@ -187,6 +187,20 @@ Eval זה unit tests למערכת לא-דטרמיניסטית: קלט קבוע, 
 | Learning | "אתר X חוסם scraping · השתמש ב-API" | lessons.md |
 | עלות | תקרה לריצה + model routing | config |
 
+## התקנה כסקיל של Claude (מומלץ)
+
+הריפו מגיע עם סקיל מוכן · ככה קלוד מפעיל את המתודולוגיה אוטומטית בכל פעם שתבקש לבנות אוטומציה, בלי שתצטרך לזכור שהיא קיימת:
+
+```
+git clone https://github.com/tiranyas/agentic-blueprint-for-non-engineers
+# Windows
+xcopy /E /I agentic-blueprint-for-non-engineers\skill %USERPROFILE%\.claude\skills\agentic-blueprint
+# macOS / Linux
+cp -r agentic-blueprint-for-non-engineers/skill ~/.claude/skills/agentic-blueprint
+```
+
+מרגע ההתקנה, "בוא נבנה אוטומציה" ב-Claude Code מדליק את הבלופרינט: קודם צ'קליסט, הצעת סוכנים + תקרת עלות לאישור, חיבור הגייטים, ו-eval לפני אמון.
+
 ## איך מתחילים
 
 0. **בחר איפה זה רץ.** הכלי שאתה כבר עובד איתו: Claude (Projects / Code), n8n, Make, או כל כלי סוכנים אחר. הגייטים לא תלויים בכלי · הם מבנה, לא טכנולוגיה. לא בטוח? Claude + תיקיית קבצים זו התחלה מצוינת.
