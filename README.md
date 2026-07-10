@@ -135,6 +135,16 @@ Eval is unit tests for a non-deterministic system: fixed input, expected output,
   3. Run the Verifier on all of them without telling it which is which.
   4. Measure false-approve and false-reject.
 
+### Run cadence · not once, not every run
+
+| When | What runs |
+|---|---|
+| **Setup (once)** | Golden set + pilot + seeded set → baseline row in history |
+| **Every change** (prompt / model / lesson) | The full set, before adopting · the main trigger |
+| **Every regular run** | Only the cheap checks: completeness gate, provenance code checks, Verifier on that run's actual claims |
+| **Periodic (~monthly)** | The full set even without changes · catches drift (sources and models shift silently) |
+| **Real production mistake** | Joins the set (append-only) · the proof gets harder over time |
+
 ### The decision rule · when a change is adopted
 
 Two gates, both must pass:
